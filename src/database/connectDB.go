@@ -20,6 +20,6 @@ func OpenDB() (*sql.DB, error) {
 	return sql.Open("postgres", psqlConString)
 }
 
-func QueryDB(db *sql.DB, queryString string) (*sql.Rows, error) {
-	return db.Query(queryString)
+func QueryDB(db *sql.DB, queryString string, args ...interface{}) (*sql.Rows, error) {
+	return db.Query(queryString, args...)
 }

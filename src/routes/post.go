@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,8 +36,17 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getPosts(w http.ResponseWriter, _ *http.Request) {
-	rows, err := database.QueryDB(db, `SELECT id, "Posted", title, description, "Images", theme, poster_id, tags FROM public."Posts"`)
+func getPosts(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	var rows *sql.Rows
+	var err error
+
+	if id != "" {
+		rows, err = database.QueryDB(db, `SELECT id, "Posted", title, description, "Images", poster_id, tags FROM public."Posts" WHERE id = $1`, id)
+	} else {
+		rows, err = database.QueryDB(db, `SELECT id, "Posted", title, description, "Images", poster_id, tags FROM public."Posts"`)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
 		return
