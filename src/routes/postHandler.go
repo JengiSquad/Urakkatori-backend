@@ -35,11 +35,12 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		getPosts(w, r)
 	case http.MethodPost:
 		createPost(w, r)
+	case http.MethodDelete:
+		deletePost(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
-
 func getPosts(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	var rows *sql.Rows
@@ -137,4 +138,24 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, `{"id": %d}`, id)
+}
+
+func deletePost(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Missing id parameter", http.StatusBadRequest)
+		return
+	}
+
+	query := `DELETE FROM public."Posts" WHERE id = $1`
+	res, err := database.QueryDB(db, query, id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Database delete error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer res.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `{"message": "Post with id %s deleted"}`, id)
 }
