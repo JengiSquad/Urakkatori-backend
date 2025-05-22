@@ -10,6 +10,7 @@ import (
 
 	"github.com/lib/pq"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
+	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
 type PostRequest struct {
@@ -41,6 +42,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
+
 func getPosts(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	var rows *sql.Rows
@@ -60,30 +62,14 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var posts []PostResponse
-	for rows.Next() {
-		var post PostResponse
-		var tagsArr, imagesArr []string
-		var posterID sql.NullString
-		err := rows.Scan(&post.ID, &post.Posted, &post.Title, &post.Description, &posterID, pq.Array(&tagsArr), pq.Array(&imagesArr))
-		if err != nil {
-			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
-			return
-		}
-		post.Tags = tagsArr
-		post.Images = imagesArr
-		if posterID.Valid {
-			post.PosterID = posterID.String
-		}
-		posts = append(posts, post)
+	jsonData, err := logicfunction.RowsToJSON(rows)
+	if err != nil {
+		http.Error(w, "Failed to convert rows to JSON", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if id != "" && len(posts) == 1 {
-		json.NewEncoder(w).Encode(posts[0])
-	} else {
-		json.NewEncoder(w).Encode(posts)
-	}
+	w.Write(jsonData)
 }
 
 func createPost(w http.ResponseWriter, r *http.Request) {

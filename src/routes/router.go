@@ -12,6 +12,7 @@ func Router(databaseConn *sql.DB) {
 	http.HandleFunc("/yap", yapHandler)
 	http.HandleFunc("/tag/definition", tagHandler)
 	http.HandleFunc("/post", PostHandler)
+	http.HandleFunc("/match", MatchHandler)
 }
 
 func yapHandler(w http.ResponseWriter, r *http.Request) {
