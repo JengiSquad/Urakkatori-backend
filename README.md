@@ -1,6 +1,6 @@
 # Urakka Urakasta Backend
 
-
+To start cd into the src folder and type go run .
 
 ## Getting started
 
