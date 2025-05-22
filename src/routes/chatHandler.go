@@ -294,8 +294,52 @@ func getChats(w http.ResponseWriter, r *http.Request) {
 }
 
 func createChat(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create a chat
-	w.Write([]byte("Create Chat"))
+	var req struct {
+		UserAID string `json:"user_a_id"`
+		UserBID string `json:"user_b_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserAID == "" || req.UserBID == "" {
+		http.Error(w, "user_a_id and user_b_id are required", http.StatusBadRequest)
+		return
+	}
+
+	// Get the largest existing chat ID
+	var maxID sql.NullInt16
+	err := db.QueryRow("SELECT MAX(id) FROM chat").Scan(&maxID)
+	if err != nil {
+		fmt.Printf("Error getting max chat ID: %v\n", err)
+		http.Error(w, "Failed to create chat", http.StatusInternalServerError)
+		return
+	}
+
+	// Calculate next ID (start from 1 if no chats exist)
+	var nextID int16 = 1
+	if maxID.Valid {
+		nextID = maxID.Int16 + 1
+	}
+
+	// Create new chat with specific ID
+	timestamp := int(time.Now().UnixNano() / int64(time.Millisecond))
+	_, err = db.Exec(`
+		INSERT INTO chat (id, user_id_a, user_id_b, messages, last_updated) 
+		VALUES ($1, $2, $3, '[]', $4)
+	`, nextID, req.UserAID, req.UserBID, timestamp)
+
+	if err != nil {
+		fmt.Printf("Error creating chat: %v\n", err)
+		http.Error(w, "Failed to create chat", http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]int16{"chat_id": nextID}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 // Replace this with your actual database connection function
