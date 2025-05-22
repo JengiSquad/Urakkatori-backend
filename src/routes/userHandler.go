@@ -62,6 +62,22 @@ func getPostsByUUID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	// Check if there are any rows
+	hasRows := rows.Next()
+	if !hasRows {
+		http.Error(w, fmt.Sprintf("No posts found for user with UUID %s", req.UUID), http.StatusNotFound)
+		return
+	}
+
+	// Reset the rows cursor since we moved it forward with rows.Next()
+	rows, err = db.Query(`SELECT * FROM public."Posts" WHERE poster_id = $1`, req.UUID)
+	if err != nil {
+		fmt.Printf("Database error: %v\n", err)
+		http.Error(w, "Failed to retrieve posts", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
 	postsJSON, err := logicfunction.RowsToJSON(rows)
 	if err != nil {
 		fmt.Printf("Error converting rows to JSON: %v\n", err)

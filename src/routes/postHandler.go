@@ -82,6 +82,12 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 		posts = append(posts, post)
 	}
 
+	// Check if a specific post was requested but not found
+	if id != "" && len(posts) == 0 {
+		http.Error(w, fmt.Sprintf("Post with id %s not found", id), http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if id != "" && len(posts) == 1 {
 		json.NewEncoder(w).Encode(posts[0])
