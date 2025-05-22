@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/lib/pq"
+	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
-	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
 type PostRequest struct {
@@ -21,13 +23,13 @@ type PostRequest struct {
 }
 
 type PostResponse struct {
-	ID          int16    `json:"id"`
-	Posted      string   `json:"posted"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	PosterID    string   `json:"poster_id"`
-	Tags        []string `json:"tags"`
-	Images      []string `json:"images"`
+	ID          int16     `json:"id"`
+	Posted      string    `json:"posted"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	PosterID    uuid.UUID `json:"poster_id"`
+	Tags        []string  `json:"tags"`
+	Images      []string  `json:"images"`
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,20 +64,45 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	jsonData, err := logicfunction.RowsToJSON(rows)
-	if err != nil {
-		http.Error(w, "Failed to convert rows to JSON", http.StatusInternalServerError)
-		return
+	var posts []PostResponse
+	for rows.Next() {
+		var post PostResponse
+		var tagsArr, imagesArr []string
+		var posterID uuid.UUID
+		err := rows.Scan(&post.ID, &post.Posted, &post.Title, &post.Description, &posterID, pq.Array(&tagsArr), pq.Array(&imagesArr))
+		if err != nil {
+			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
+			return
+		}
+		post.Tags = tagsArr
+		post.Images = imagesArr
+		if posterID != uuid.Nil {
+			post.PosterID = posterID
+		}
+		posts = append(posts, post)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonData)
+	if id != "" && len(posts) == 1 {
+		json.NewEncoder(w).Encode(posts[0])
+	} else {
+		json.NewEncoder(w).Encode(posts)
+	}
 }
 
 func createPost(w http.ResponseWriter, r *http.Request) {
-	sessionToken := r.Header.Get("Session-Token")
-	if sessionToken == "" {
-		http.Error(w, "Missing Session-Token header", http.StatusUnauthorized)
+	token, err := auth.GetToken(r)
+	if err != nil {
+		http.Error(w, "Token not found", http.StatusUnauthorized)
+		return
+	}
+	// If you use Bearer token in Authorization header, use:
+	// tokenStr := r.Header.Get("Authorization")
+
+	// Use your auth package to extract UUID
+	userUUID, err := auth.ExtractUserUUID(token)
+	if err != nil {
+		http.Error(w, "Invalid user token", http.StatusUnauthorized)
 		return
 	}
 
@@ -113,9 +140,9 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `INSERT INTO public."Posts" (title, description, "Images", tags) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO public."Posts" (title, description, "Images", tags, poster_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 	var id int16
-	err = db.QueryRow(query, req.Title, req.Description, pq.Array(req.Images), pq.Array(allTags)).Scan(&id)
+	err = db.QueryRow(query, req.Title, req.Description, pq.Array(req.Images), pq.Array(allTags), userUUID).Scan(&id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Database insert error: %v", err), http.StatusInternalServerError)
 		return
