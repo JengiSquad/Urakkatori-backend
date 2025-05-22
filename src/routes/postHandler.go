@@ -8,21 +8,25 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lib/pq"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
-	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
-
-type Image struct {
-	URL         string `json:"url"`
-	Description string `json:"description"`
-}
 
 type PostRequest struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
-	Images      []Image  `json:"images"`
-	PosterID    string   `json:"poster_id,omitempty"`
+	Images      []string `json:"images"`
 	Tags        []string `json:"tags"`
+}
+
+type PostResponse struct {
+	ID          int16    `json:"id"`
+	Posted      string   `json:"posted"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	PosterID    string   `json:"poster_id"`
+	Tags        []string `json:"tags"`
+	Images      []string `json:"images"`
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,10 +45,12 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	var rows *sql.Rows
 	var err error
 
+	query := `SELECT id, "Posted", title, description, poster_id, tags, "Images" FROM public."Posts"`
 	if id != "" {
-		rows, err = database.QueryDB(db, `SELECT id, "Posted", title, description, "Images", poster_id, tags FROM public."Posts" WHERE id = $1`, id)
+		query += " WHERE id = $1"
+		rows, err = database.QueryDB(db, query, id)
 	} else {
-		rows, err = database.QueryDB(db, `SELECT id, "Posted", title, description, "Images", poster_id, tags FROM public."Posts"`)
+		rows, err = database.QueryDB(db, query)
 	}
 
 	if err != nil {
@@ -53,18 +59,33 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	posts, err := logicfunction.RowsToJSON(rows)
-	if err != nil {
-		http.Error(w, "Failed to convert rows to JSON", http.StatusInternalServerError)
-		return
+	var posts []PostResponse
+	for rows.Next() {
+		var post PostResponse
+		var tagsArr, imagesArr []string
+		var posterID sql.NullString
+		err := rows.Scan(&post.ID, &post.Posted, &post.Title, &post.Description, &posterID, pq.Array(&tagsArr), pq.Array(&imagesArr))
+		if err != nil {
+			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
+			return
+		}
+		post.Tags = tagsArr
+		post.Images = imagesArr
+		if posterID.Valid {
+			post.PosterID = posterID.String
+		}
+		posts = append(posts, post)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(posts)
+	if id != "" && len(posts) == 1 {
+		json.NewEncoder(w).Encode(posts[0])
+	} else {
+		json.NewEncoder(w).Encode(posts)
+	}
 }
 
 func createPost(w http.ResponseWriter, r *http.Request) {
-	// Get session token from header
 	sessionToken := r.Header.Get("Session-Token")
 	if sessionToken == "" {
 		http.Error(w, "Missing Session-Token header", http.StatusUnauthorized)
@@ -84,12 +105,6 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imagesJSON, err := json.Marshal(req.Images)
-	if err != nil {
-		http.Error(w, "Invalid images", http.StatusBadRequest)
-		return
-	}
-
 	// Generate all parent ltree tags for each tag
 	tagSet := make(map[string]struct{})
 	for _, tag := range req.Tags {
@@ -102,7 +117,6 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 			tagSet[parent] = struct{}{}
 		}
 	}
-	// Convert set to slice
 	var allTags []string
 	for tag := range tagSet {
 		allTags = append(allTags, tag)
@@ -111,12 +125,10 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "At least one tag is required", http.StatusBadRequest)
 		return
 	}
-	// Convert tags to Postgres text[] format
-	tagsPG := "{" + strings.Join(allTags, ",") + "}"
 
 	query := `INSERT INTO public."Posts" (title, description, "Images", tags) VALUES ($1, $2, $3, $4) RETURNING id`
-	var id int64
-	err = db.QueryRow(query, req.Title, req.Description, string(imagesJSON), tagsPG).Scan(&id)
+	var id int16
+	err = db.QueryRow(query, req.Title, req.Description, pq.Array(req.Images), pq.Array(allTags)).Scan(&id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Database insert error: %v", err), http.StatusInternalServerError)
 		return
