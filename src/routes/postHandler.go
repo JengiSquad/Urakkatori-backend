@@ -104,7 +104,6 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid user token", http.StatusUnauthorized)
 		return
 	}
-	*/
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
