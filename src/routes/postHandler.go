@@ -87,11 +87,12 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func createPost(w http.ResponseWriter, r *http.Request) {
-	sessionToken := r.Header.Get("Session-Token")
+	/* sessionToken := r.Header.Get("Session-Token")
 	if sessionToken == "" {
 		http.Error(w, "Missing Session-Token header", http.StatusUnauthorized)
 		return
 	}
+	*/
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
