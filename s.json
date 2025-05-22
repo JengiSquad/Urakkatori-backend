@@ -1,0 +1,70 @@
+{
+"postaus":
+{
+  "title": "blabla",
+  "description": "hefhahad",
+  "images": [
+    {
+      "url": "https://example.com/image1.jpg",
+      "description": "Image 1 description"
+    },
+    {
+      "url": "https://example.com/image2.jpg",
+      "description": "Image 2 description"
+    }
+  ],
+  "theme": 3,
+  "tags": [
+        [1, 4, 2],
+        [2, 3, 1],
+        [3, 2]
+  ],
+  "session-token": "1234567890abcdef"
+},
+"käyttäjä-pyytää":
+{
+    "title": "blabla",
+  "description": "hefhahad",
+  "images": [
+    {
+      "url": "https://example.com/image1.jpg",
+      "description": "Image 1 description"
+    },
+    {
+      "url": "https://example.com/image2.jpg",
+      "description": "Image 2 description"
+    }
+  ],
+  "theme": 3,
+  "tags": [
+        [1, 4, 2],
+        [2, 3, 1],
+        [3, 2]
+  ],
+    "poster": {
+        "name": "John Doe",
+        "id": 12345
+    },
+    "date": "2023-10-01T12:00:00Z"
+},
+"user-creation":
+{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "password": "securepassword123"
+},
+"user-creation-success":
+{
+    "session-token": "1234567890abcdef"
+},
+"skills-from-backend": {
+    "0": {
+        "name": "Tietotekniikka",
+        "level": 1
+    },
+    "0-13-62-21": {
+        "name": "Java",
+        "level": 2
+    }
+}
+}
