@@ -49,6 +49,13 @@ func chatMessage(w http.ResponseWriter, r *http.Request) {
 		ChatID  string `json:"chatid"`
 		Message string `json:"message"`
 	}
+
+	type ChatMessage struct {
+		Sender    string `json:"sender"`
+		Message   string `json:"message"`
+		Timestamp string `json:"timestamp"`
+	}
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -80,18 +87,27 @@ func chatMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch chat participants and chats field
 	var userA, userB uuid.UUID
+	var last_updated int64
 	var chatsRaw json.RawMessage
 	err = db.QueryRow(`
-		SELECT user_id_a, user_id_b, chats
+		SELECT user_id_a, user_id_b, messages, last_updated
 		FROM chat
 		WHERE id = $1
-	`, chatID).Scan(&userA, &userB, &chatsRaw)
+	`, chatID).Scan(&userA, &userB, &chatsRaw, &last_updated)
+	fmt.Printf("Fetching chatID: %d\n", chatID)
+	fmt.Println("Raw chats from DB:", string(chatsRaw))
 	if err == sql.ErrNoRows {
 		http.Error(w, "Chat not found", http.StatusNotFound)
 		return
 	} else if err != nil {
 		fmt.Printf("Database error: %v\n", err)
 		http.Error(w, "Failed to fetch chat", http.StatusInternalServerError)
+		return
+	}
+
+	if err != nil {
+		fmt.Printf("Error marshalling chats: %v\n", err)
+		http.Error(w, "Failed to process message", http.StatusInternalServerError)
 		return
 	}
 
@@ -106,39 +122,29 @@ func chatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse chats field (should be an array)
-	var chats []map[string]interface{}
+	var chats []ChatMessage
+
 	if len(chatsRaw) == 0 {
-		chats = []map[string]interface{}{}
+		chats = []ChatMessage{}
 	} else {
-		if err := json.Unmarshal(chatsRaw, &chats); err != nil {
-			// Try to fix broken format (object with one key)
-			var obj map[string]json.RawMessage
-			if err2 := json.Unmarshal(chatsRaw, &obj); err2 == nil && len(obj) == 1 {
-				for k := range obj {
-					if err3 := json.Unmarshal([]byte(k), &chats); err3 != nil {
-						fmt.Printf("Invalid chats JSON: %v\nRaw: %s\n", err3, k)
-						http.Error(w, "Invalid chat format", http.StatusInternalServerError)
-						return
-					}
-					break
-				}
-			} else {
-				fmt.Printf("Invalid chats JSON: %v\nRaw: %s\n", err, string(chatsRaw))
-				http.Error(w, "Invalid chat format", http.StatusInternalServerError)
-				return
-			}
+
+		err := json.Unmarshal(chatsRaw, &chats)
+		if err != nil {
+			fmt.Printf("Error unmarshalling chats: %v\n", err)
+			http.Error(w, "Failed to process message", http.StatusInternalServerError)
+			return
 		}
+
 	}
 
 	// Get current timestamp (milliseconds)
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	timestamp := int(time.Now().UnixNano() / int64(time.Millisecond))
 
 	// Append new message
-	newMsg := map[string]interface{}{
-		"sender":    sender,
-		"message":   req.Message,
-		"timestamp": fmt.Sprintf("%d", timestamp),
+	newMsg := ChatMessage{
+		Sender:    sender,
+		Message:   req.Message,
+		Timestamp: fmt.Sprintf("%d", timestamp),
 	}
 	chats = append(chats, newMsg)
 
@@ -151,7 +157,13 @@ func chatMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update chats in DB
-	_, err = db.Exec(`UPDATE chat SET chats = $1 WHERE id = $2`, chatsBytes, chatID)
+	_, err = db.Exec(`UPDATE chat SET messages = $1 WHERE id = $2`, chatsBytes, chatID)
+	if err != nil {
+		fmt.Printf("Error updating chat: %v\n", err)
+		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		return
+	}
+	_, err = db.Exec(`UPDATE chat SET last_updated = $1 WHERE id = $2`, int(timestamp), chatID)
 	if err != nil {
 		fmt.Printf("Error updating chat: %v\n", err)
 		http.Error(w, "Failed to save message", http.StatusInternalServerError)
@@ -180,7 +192,7 @@ func getChatById(w http.ResponseWriter, r *http.Request) {
 
 	// Use parameterized query to fetch the chat by id
 	rows, err := db.Query(`
-		SELECT id, chats, user_id_a, user_id_b
+		SELECT id, messages, user_id_a, user_id_b
 		FROM chat
 		WHERE id = $1
 	`, chatID)
@@ -221,23 +233,24 @@ func getChats(w http.ResponseWriter, r *http.Request) {
 
 	// Use parameterized query to avoid SQL injection and type errors
 	rows, err := db.Query(`
-        SELECT id, chats, user_id_a, user_id_b 
+        SELECT id, messages, user_id_a, user_id_b, last_updated 
         FROM chat 
         WHERE user_id_a = $1 OR user_id_b = $1
     `, userUUID)
 	if err != nil {
 		fmt.Printf("Database error: %v\n", err)
-		http.Error(w, "Failed to retrieve chats", http.StatusInternalServerError)
+		http.Error(w, "Failed to retrieve messages", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
 	// Structure to hold each chat
 	type Chat struct {
-		ID      int16           `json:"id"`
-		Chats   json.RawMessage `json:"chats"`
-		UserIDA uuid.UUID       `json:"user_id_a"`
-		UserIDB uuid.UUID       `json:"user_id_b"`
+		ID          int16           `json:"id"`
+		Chats       json.RawMessage `json:"chats"`
+		UserIDA     uuid.UUID       `json:"user_id_a"`
+		UserIDB     uuid.UUID       `json:"user_id_b"`
+		LastUpdated int64           `json:"last_updated"`
 	}
 
 	// Collect all chats as JSON, then decode to []Chat

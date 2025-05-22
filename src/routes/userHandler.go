@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
+	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
 func UserHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,6 +20,78 @@ func UserHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func UUIDHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		getUUID(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func PostsByUUIDHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		getPostsByUUID(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func getPostsByUUID(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		UUID string `json:"uuid"`
+	}
+	var req requestBody
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.UUID == "" {
+		http.Error(w, "uuid is required", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := db.Query(`SELECT * FROM public."Posts" WHERE poster_id = $1`, req.UUID)
+	if err != nil {
+		fmt.Printf("Database error: %v\n", err)
+		http.Error(w, "Failed to retrieve posts", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	postsJSON, err := logicfunction.RowsToJSON(rows)
+	if err != nil {
+		fmt.Printf("Error converting rows to JSON: %v\n", err)
+		http.Error(w, "Failed to process posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(postsJSON)
+}
+
+func getUUID(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetToken(r)
+	if err != nil {
+		http.Error(w, "Token not found", http.StatusUnauthorized)
+		return
+	}
+	// If you use Bearer token in Authorization header, use:
+	// tokenStr := r.Header.Get("Authorization")
+
+	// Use your auth package to extract UUID
+	userUUID, err := auth.ExtractUserUUID(token)
+	if err != nil {
+		http.Error(w, "Invalid user token", http.StatusUnauthorized)
+		return
+	}
+
+	resp := map[string]string{"uuid": userUUID}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func getDisplayname(w http.ResponseWriter, r *http.Request) {

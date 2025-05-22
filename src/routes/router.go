@@ -15,7 +15,9 @@ func Router(databaseConn *sql.DB) {
 	http.HandleFunc("/chats", ChatHandler)
 	http.HandleFunc("/chats/sendmessage", ChatMessageHandler)
 	http.HandleFunc("/chats/getchat", ChatIdHandler)
+	http.HandleFunc("/user/uuid", UUIDHandler)
 	http.HandleFunc("/user/displayname", UserHandler)
+	http.HandleFunc("/user/posts", PostsByUUIDHandler)
 }
 
 func yapHandler(w http.ResponseWriter, r *http.Request) {
