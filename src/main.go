@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	_ "github.com/lib/pq"
-	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/routes"
 )
@@ -20,7 +19,7 @@ func main() {
 
 	routes.Router(db)
 
-	http.HandleFunc("/", auth.AuthMiddleware(handler))
+	http.HandleFunc("/", handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
