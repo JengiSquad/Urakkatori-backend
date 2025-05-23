@@ -20,6 +20,7 @@ func Router(databaseConn *sql.DB) {
 	http.HandleFunc("/user/displayname", UserHandler)
 	http.HandleFunc("/user/posts", PostsByUUIDHandler)
 	http.HandleFunc("/feed", FeedHandler)
+	http.HandleFunc("/user/skills", SkillsHandler)
 }
 
 func yapHandler(w http.ResponseWriter, r *http.Request) {

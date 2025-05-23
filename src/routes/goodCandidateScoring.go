@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/database"
 	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
@@ -153,6 +155,33 @@ func AddConnections(postID int) {
 		}
 	}
 
+	// --- Add postID to globalfeeds under id 0 if not already present ---
+	var exists bool
+	row := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM globalfeed WHERE id = 0)`)
+	if err := row.Scan(&exists); err != nil {
+		fmt.Println("Failed to check globalfeed existence:", err)
+		return
+	}
+	if !exists {
+		_, err := database.QueryDB(db, `INSERT INTO globalfeed (id, posts) VALUES (0, '{}')`)
+		if err != nil {
+			fmt.Println("Failed to insert globalfeed row:", err)
+			return
+		}
+	}
+	// Only append if not already present
+	_, err = database.QueryDB(db, `UPDATE globalfeed SET posts = 
+		CASE 
+			WHEN NOT posts @> ARRAY[$1]::bigint[] THEN array_append(posts, $1)
+			ELSE posts
+		END
+		WHERE id = 0`, postID)
+	if err != nil {
+		fmt.Println("Failed to update globalfeed:", err)
+		return
+	}
+	// --- end globalfeeds logic ---
+
 	// Build the IN clause and args
 	inClause := ""
 	args := make([]interface{}, len(scoredUserIDs))
@@ -202,7 +231,114 @@ func AddConnections(postID int) {
 	for _, feed := range feeds {
 		feedMap[feed.ID] = feed.Posts
 	}
-	return
+}
+
+func GetConnectionsFromGlobal(userUUID uuid.UUID) ([]int64, error) {
+	// Get all global post IDs
+	rows, err := database.QueryDB(db, `SELECT feed FROM globalfeed WHERE id = 0`)
+	if err != nil {
+		return nil, fmt.Errorf("error querying globalfeed: %w", err)
+	}
+	defer rows.Close()
+
+	var postsRaw []byte
+	if rows.Next() {
+		if err := rows.Scan(&postsRaw); err != nil {
+			return nil, fmt.Errorf("error scanning globalfeed row: %w", err)
+		}
+	}
+
+	var globalPosts []int64
+	postsStr := strings.Trim(string(postsRaw), "{}")
+	if postsStr == "" {
+		return []int64{}, nil
+	} else {
+		postParts := strings.Split(postsStr, ",")
+		for _, p := range postParts {
+			val, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64)
+			if err == nil {
+				globalPosts = append(globalPosts, val)
+			}
+		}
+	}
+
+	// Get user skills as map[tag]level
+	userSkillRows, err := database.QueryDB(db, `SELECT skill FROM user_skill WHERE id = $1`, userUUID.String())
+	if err != nil {
+		return nil, fmt.Errorf("error querying user_skill: %w", err)
+	}
+	defer userSkillRows.Close()
+
+	userSkills := make(map[string]int)
+	for userSkillRows.Next() {
+		var skillRaw string
+		if err := userSkillRows.Scan(&skillRaw); err != nil {
+			continue
+		}
+
+		// Parse JSON array format
+		type SkillItem struct {
+			Tag   string `json:"tag"`
+			Level int    `json:"level"`
+		}
+		var skills []SkillItem
+		if err := json.Unmarshal([]byte(skillRaw), &skills); err != nil {
+			continue
+		}
+
+		for _, skill := range skills {
+			userSkills[skill.Tag] = skill.Level
+		}
+	}
+
+	var userFeedPosts []int64
+
+	for _, postID := range globalPosts {
+		// Get tags for this post
+		postRows, err := database.QueryDB(db, `SELECT tags FROM public."Posts" WHERE id = $1`, postID)
+		if err != nil {
+			continue
+		}
+		var tagsRaw string
+		if postRows.Next() {
+			if err := postRows.Scan(&tagsRaw); err != nil {
+				postRows.Close()
+				continue
+			}
+		}
+		postRows.Close()
+		tags := []string{}
+		tagsStr := strings.Trim(tagsRaw, "{}")
+		if tagsStr != "" {
+			tags = strings.Split(tagsStr, ",")
+		}
+		// Check if user has skill > 1 for any tag
+		hasSkill := false
+		for _, tag := range tags {
+			tag = strings.TrimSpace(tag)
+			if lvl, ok := userSkills[tag]; ok && lvl > 1 {
+				hasSkill = true
+				break
+			}
+		}
+		if hasSkill {
+			userFeedPosts = append(userFeedPosts, postID)
+		}
+	}
+
+	// Update user's feed in the feed table (replace posts)
+	var exists bool
+	row := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM feed WHERE id = $1)`, userUUID.String())
+	if err := row.Scan(&exists); err != nil {
+		return userFeedPosts, nil // skip update on error
+	}
+	if !exists {
+		_, _ = database.QueryDB(db, `INSERT INTO feed (id, posts) VALUES ($1, '{}')`, userUUID.String())
+	}
+	postsArray := "{" + strings.Trim(strings.Replace(fmt.Sprint(userFeedPosts), " ", ",", -1), "[]") + "}"
+	_, _ = database.QueryDB(db, `UPDATE feed SET posts = $1 WHERE id = $2`, postsArray, userUUID.String())
+
+	return userFeedPosts, nil
 }
 
 /*
