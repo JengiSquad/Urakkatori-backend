@@ -154,6 +154,7 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	AddConnections(int(id))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, `{"id": %d}`, id)

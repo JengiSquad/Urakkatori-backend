@@ -19,6 +19,7 @@ func Router(databaseConn *sql.DB) {
 	http.HandleFunc("/user/uuid", UUIDHandler)
 	http.HandleFunc("/user/displayname", UserHandler)
 	http.HandleFunc("/user/posts", PostsByUUIDHandler)
+	http.HandleFunc("/feed", FeedHandler)
 }
 
 func yapHandler(w http.ResponseWriter, r *http.Request) {

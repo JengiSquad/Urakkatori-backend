@@ -190,11 +190,8 @@ func RowsToUserTagLevelList(rows *sql.Rows) ([]UserTagLevels, error) {
 
 		tagLevels := []TagLevel{}
 		if len(skillRaw) > 0 {
-			var skillMap map[string]int
-			if err := json.Unmarshal(skillRaw, &skillMap); err == nil {
-				for tag, level := range skillMap {
-					tagLevels = append(tagLevels, TagLevel{Tag: tag, Level: level})
-				}
+			if err := json.Unmarshal(skillRaw, &tagLevels); err != nil {
+				tagLevels = []TagLevel{}
 			}
 		}
 		results = append(results, UserTagLevels{ID: id, TagLevels: tagLevels})
