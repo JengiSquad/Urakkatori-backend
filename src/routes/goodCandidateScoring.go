@@ -32,6 +32,8 @@ func AddConnections(postID int) {
 		fmt.Println("Error querying database:", err)
 		return
 	}
+	defer rows.Close()
+
 	originalPost, err := logicfunction.RowsToJSONObject(rows)
 	if err != nil {
 		fmt.Println("Error converting rows to JSON:", err)
@@ -124,6 +126,36 @@ func AddConnections(postID int) {
 		}
 	}
 
+	// --- Add postID to globalfeed first, regardless of matched users ---
+	var existsGlobal bool
+	rowGlobal := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM globalfeed WHERE id = 0)`)
+	if err := rowGlobal.Scan(&existsGlobal); err != nil {
+		fmt.Println("Failed to check globalfeed existence:", err)
+		return
+	}
+
+	if !existsGlobal {
+		// Create globalfeed with the current post
+		_, err := db.Exec(`INSERT INTO globalfeed (id, feed) VALUES (0, ARRAY[$1]::bigint[])`, postID)
+		if err != nil {
+			fmt.Println("Failed to insert globalfeed row with initial post:", err)
+			return
+		}
+		fmt.Println("Created new globalfeed with post ID:", postID)
+	} else {
+		// Add to existing globalfeed if not already present
+		_, err = db.Exec(`
+			UPDATE globalfeed 
+			SET feed = array_append(feed, $1) 
+			WHERE id = 0 
+			AND NOT feed @> ARRAY[$1]::bigint[]`, postID)
+		if err != nil {
+			fmt.Println("Failed to update globalfeed with post ID:", postID, "Error:", err)
+			return
+		}
+		fmt.Println("Added post ID to globalfeed:", postID)
+	}
+
 	if len(scoredUserIDs) == 0 {
 		return
 	}
@@ -137,7 +169,7 @@ func AddConnections(postID int) {
 			return
 		}
 		if !exists {
-			_, err := database.QueryDB(db, `INSERT INTO feed (id, posts) VALUES ($1, '{}')`, id)
+			_, err := db.Exec(`INSERT INTO feed (id, posts) VALUES ($1, '{}')`, id)
 			if err != nil {
 				fmt.Println("Failed to insert feed for user:", id)
 				fmt.Println("Error:", err)
@@ -148,39 +180,12 @@ func AddConnections(postID int) {
 
 	// Add the new postID to each user's feed in the database (always append, even if already present)
 	for _, id := range scoredUserIDs {
-		_, err := database.QueryDB(db, `UPDATE feed SET posts = array_append(posts, $1) WHERE id = $2`, postID, id)
+		_, err := db.Exec(`UPDATE feed SET posts = array_append(posts, $1) WHERE id = $2`, postID, id)
 		if err != nil {
 			fmt.Println("Failed to update feed for user:", id, "error:", err)
 			return
 		}
 	}
-
-	// --- Add postID to globalfeeds under id 0 if not already present ---
-	var exists bool
-	row := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM globalfeed WHERE id = 0)`)
-	if err := row.Scan(&exists); err != nil {
-		fmt.Println("Failed to check globalfeed existence:", err)
-		return
-	}
-	if !exists {
-		_, err := database.QueryDB(db, `INSERT INTO globalfeed (id, posts) VALUES (0, '{}')`)
-		if err != nil {
-			fmt.Println("Failed to insert globalfeed row:", err)
-			return
-		}
-	}
-	// Only append if not already present
-	_, err = database.QueryDB(db, `UPDATE globalfeed SET posts = 
-		CASE 
-			WHEN NOT posts @> ARRAY[$1]::bigint[] THEN array_append(posts, $1)
-			ELSE posts
-		END
-		WHERE id = 0`, postID)
-	if err != nil {
-		fmt.Println("Failed to update globalfeed:", err)
-		return
-	}
-	// --- end globalfeeds logic ---
 
 	// Build the IN clause and args
 	inClause := ""
@@ -333,10 +338,10 @@ func GetConnectionsFromGlobal(userUUID uuid.UUID) ([]int64, error) {
 		return userFeedPosts, nil // skip update on error
 	}
 	if !exists {
-		_, _ = database.QueryDB(db, `INSERT INTO feed (id, posts) VALUES ($1, '{}')`, userUUID.String())
+		_, _ = db.Exec(`INSERT INTO feed (id, posts) VALUES ($1, '{}')`, userUUID.String())
 	}
 	postsArray := "{" + strings.Trim(strings.Replace(fmt.Sprint(userFeedPosts), " ", ",", -1), "[]") + "}"
-	_, _ = database.QueryDB(db, `UPDATE feed SET posts = $1 WHERE id = $2`, postsArray, userUUID.String())
+	_, _ = db.Exec(`UPDATE feed SET posts = $1 WHERE id = $2`, postsArray, userUUID.String())
 
 	return userFeedPosts, nil
 }
