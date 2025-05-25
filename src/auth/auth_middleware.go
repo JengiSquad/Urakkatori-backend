@@ -14,6 +14,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			fmt.Println("Missing or invalid Authorization header")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -22,6 +23,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		tokenString = strings.TrimSpace(tokenString)
 
 		if err := verifyToken(tokenString); err != nil {
+			fmt.Printf("Token verification failed: %v\n", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

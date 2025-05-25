@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 
 	"github.com/lib/pq"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
@@ -139,8 +138,7 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := r.URL.Query().Get("id")
 	if id == "" {
 		http.Error(w, "Missing id parameter", http.StatusBadRequest)
 		return
