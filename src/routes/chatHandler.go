@@ -190,15 +190,9 @@ func GetChatByIdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetChatsHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetToken(r)
+	userUUID, err := auth.GetUUID(r)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
-		return
-	}
-
-	userUUID, err := auth.ExtractUserUUID(token)
-	if err != nil {
-		http.Error(w, "Invalid user UUID", http.StatusBadRequest)
+		http.Error(w, "Fetching UUID went wrong", http.StatusBadRequest)
 		return
 	}
 

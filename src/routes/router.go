@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
 )
 
 var db *sql.DB
@@ -34,9 +35,7 @@ func Router(databaseConn *sql.DB) http.Handler {
 	r.HandleFunc("/feed", FeedHandler).Methods("GET")
 
 	r.HandleFunc("/user/skills", SkillsHandler).Methods("POST")
-	return r
-}
 
-func yapHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello, Yap!"))
+	r.Use(auth.AuthMiddleware)
+	return r
 }

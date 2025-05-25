@@ -11,7 +11,6 @@ import (
 	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
-
 func GetPostsByUUIDHandler(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		UUID string `json:"uuid"`
@@ -62,18 +61,9 @@ func GetPostsByUUIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUUIDHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetToken(r)
+	userUUID, err := auth.GetUUID(r)
 	if err != nil {
-		http.Error(w, "Token not found", http.StatusUnauthorized)
-		return
-	}
-	// If you use Bearer token in Authorization header, use:
-	// tokenStr := r.Header.Get("Authorization")
-
-	// Use your auth package to extract UUID
-	userUUID, err := auth.ExtractUserUUID(token)
-	if err != nil {
-		http.Error(w, "Invalid user token", http.StatusUnauthorized)
+		http.Error(w, "Fetching UUID went wrong", http.StatusUnauthorized)
 		return
 	}
 

@@ -10,7 +10,7 @@ import (
 
 var secretKey = []byte("CNhjgSceTxj0dFOHfsez43cp1ubUFVQr+qfdDB5TXrqWz5br92UliYvmFjNOCMrNYHsGeIFnl7j4I9PBGPA7Og==")
 
-func AuthMiddleware(next func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -26,7 +26,7 @@ func AuthMiddleware(next func(w http.ResponseWriter, r *http.Request)) func(w ht
 			return
 		}
 
-		next(w, r)
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -44,6 +44,18 @@ func verifyToken(tokenString string) error {
 	}
 
 	return nil
+}
+
+func GetUUID(r *http.Request) (string, error) {
+	token, err := GetToken(r)
+	if err != nil {
+		return "", fmt.Errorf("failed to get token: %w", err)
+	}
+	userUUID, err := ExtractUserUUID(token)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract user UUID: %w", err)
+	}
+	return userUUID, nil
 }
 
 func GetToken(r *http.Request) (string, error) {

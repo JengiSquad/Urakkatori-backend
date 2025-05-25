@@ -11,14 +11,9 @@ import (
 )
 
 func FeedHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetToken(r)
+	userUUID, err := auth.GetUUID(r)
 	if err != nil {
-		http.Error(w, "Invalid user token", http.StatusUnauthorized)
-		return
-	}
-	userUUID, err := auth.ExtractUserUUID(token)
-	if err != nil {
-		http.Error(w, "Invalid user UUID", http.StatusUnauthorized)
+		http.Error(w, "Getting UUID went wrong", http.StatusUnauthorized)
 		return
 	}
 

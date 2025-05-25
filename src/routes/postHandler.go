@@ -85,21 +85,11 @@ func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetToken(r)
+	userUUID, err := auth.GetUUID(r)
 	if err != nil {
-		http.Error(w, "Token not found", http.StatusUnauthorized)
+		http.Error(w, "Fetching UUID went wrong", http.StatusUnauthorized)
 		return
 	}
-	// If you use Bearer token in Authorization header, use:
-	// tokenStr := r.Header.Get("Authorization")
-
-	// Use your auth package to extract UUID
-	userUUID, err := auth.ExtractUserUUID(token)
-	if err != nil {
-		http.Error(w, "Invalid user token", http.StatusUnauthorized)
-		return
-	}
-
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
