@@ -17,10 +17,9 @@ func main() {
 	}
 	defer db.Close()
 
-	routes.Router(db)
+	router := routes.Router(db)
 
-	http.HandleFunc("/", handler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {

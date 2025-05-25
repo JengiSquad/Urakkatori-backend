@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 
 	"github.com/lib/pq"
 	"gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/auth"
@@ -32,20 +33,7 @@ type PostResponse struct {
 	Images      []string  `json:"images"`
 }
 
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getPosts(w, r)
-	case http.MethodPost:
-		createPost(w, r)
-	case http.MethodDelete:
-		deletePost(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func getPosts(w http.ResponseWriter, r *http.Request) {
+func GetPostsHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	var rows *sql.Rows
 	var err error
@@ -96,7 +84,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createPost(w http.ResponseWriter, r *http.Request) {
+func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetToken(r)
 	if err != nil {
 		http.Error(w, "Token not found", http.StatusUnauthorized)
@@ -160,8 +148,9 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"id": %d}`, id)
 }
 
-func deletePost(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Missing id parameter", http.StatusBadRequest)
 		return

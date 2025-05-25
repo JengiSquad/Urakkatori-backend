@@ -8,7 +8,7 @@ import (
 	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
-func tagHandler(w http.ResponseWriter, r *http.Request) {
+func TagHandler(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.QueryDB(db, `SELECT * FROM tag_definitions`)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)

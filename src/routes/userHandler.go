@@ -11,36 +11,8 @@ import (
 	logicfunction "gitlab.paivola.fi/jhautalu/Urakka-Urakasta-Backend/src/logicFunction"
 )
 
-func UserHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		getDisplayname(w, r)
-	//case http.MethodPost:
-	//	createChat(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
 
-func UUIDHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getUUID(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func PostsByUUIDHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		getPostsByUUID(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func getPostsByUUID(w http.ResponseWriter, r *http.Request) {
+func GetPostsByUUIDHandler(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		UUID string `json:"uuid"`
 	}
@@ -89,7 +61,7 @@ func getPostsByUUID(w http.ResponseWriter, r *http.Request) {
 	w.Write(postsJSON)
 }
 
-func getUUID(w http.ResponseWriter, r *http.Request) {
+func GetUUIDHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetToken(r)
 	if err != nil {
 		http.Error(w, "Token not found", http.StatusUnauthorized)
@@ -110,7 +82,7 @@ func getUUID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-func getDisplayname(w http.ResponseWriter, r *http.Request) {
+func getDisplaynameHandler(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		UserID string `json:"userid"`
 	}

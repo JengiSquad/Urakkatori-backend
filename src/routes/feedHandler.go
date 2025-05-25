@@ -11,15 +11,6 @@ import (
 )
 
 func FeedHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getFeed(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func getFeed(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetToken(r)
 	if err != nil {
 		http.Error(w, "Invalid user token", http.StatusUnauthorized)

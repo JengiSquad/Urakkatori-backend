@@ -14,36 +14,7 @@ import (
 	// For example: "yourproject/database"
 )
 
-func ChatHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getChats(w, r)
-	case http.MethodPost:
-		createChat(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
 func ChatMessageHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		chatMessage(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func ChatIdHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		getChatById(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func chatMessage(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req struct {
 		ChatID  string `json:"chatid"`
@@ -174,7 +145,7 @@ func chatMessage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
-func getChatById(w http.ResponseWriter, r *http.Request) {
+func GetChatByIdHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ChatID string `json:"chatid"`
 	}
@@ -218,7 +189,7 @@ func getChatById(w http.ResponseWriter, r *http.Request) {
 	w.Write(chatJSONBytes)
 }
 
-func getChats(w http.ResponseWriter, r *http.Request) {
+func GetChatsHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetToken(r)
 	if err != nil {
 		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
@@ -293,7 +264,7 @@ func getChats(w http.ResponseWriter, r *http.Request) {
 	w.Write(chatsJSON)
 }
 
-func createChat(w http.ResponseWriter, r *http.Request) {
+func CreateChatHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserAID string `json:"user_a_id"`
 		UserBID string `json:"user_b_id"`

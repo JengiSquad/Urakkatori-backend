@@ -11,15 +11,6 @@ import (
 )
 
 func SkillsHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		skillsInit(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func skillsInit(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetToken(r)
 	if err != nil {
 		http.Error(w, "Invalid user token", http.StatusUnauthorized)

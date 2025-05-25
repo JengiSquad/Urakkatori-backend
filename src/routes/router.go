@@ -3,24 +3,38 @@ package routes
 import (
 	"database/sql"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 var db *sql.DB
 
-func Router(databaseConn *sql.DB) {
+func Router(databaseConn *sql.DB) http.Handler {
+	r := mux.NewRouter()
 	db = databaseConn
-	http.HandleFunc("/yap", yapHandler)
-	http.HandleFunc("/tag/definition", tagHandler)
-	http.HandleFunc("/post", PostHandler)
-	http.HandleFunc("/match", MatchHandler)
-	http.HandleFunc("/chats", ChatHandler)
-	http.HandleFunc("/chats/sendmessage", ChatMessageHandler)
-	http.HandleFunc("/chats/getchat", ChatIdHandler)
-	http.HandleFunc("/user/uuid", UUIDHandler)
-	http.HandleFunc("/user/displayname", UserHandler)
-	http.HandleFunc("/user/posts", PostsByUUIDHandler)
-	http.HandleFunc("/feed", FeedHandler)
-	http.HandleFunc("/user/skills", SkillsHandler)
+
+	//r.HandleFunc("/yap", yapHandler).Methods("GET")
+	r.HandleFunc("/tag/definition", TagHandler).Methods("GET")
+
+	r.HandleFunc("/post", GetPostsHandler).Methods("GET")
+	r.HandleFunc("/post", CreatePostHandler).Methods("POST")
+	r.HandleFunc("/post", DeletePostHandler).Methods("DELETE")
+
+	//r.HandleFunc("/match", MatchHandler).Methods("GET")
+
+	r.HandleFunc("/chats", GetChatsHandler).Methods("GET")
+	r.HandleFunc("/chats", CreateChatHandler).Methods("POST")
+	r.HandleFunc("/chats/sendmessage", ChatMessageHandler).Methods("POST")
+	r.HandleFunc("/chats/getchat", GetChatByIdHandler).Methods("POST")
+
+	r.HandleFunc("/user/uuid", GetUUIDHandler).Methods("GET")
+	r.HandleFunc("/user/displayname", getDisplaynameHandler).Methods("POST")
+	r.HandleFunc("/user/posts", GetPostsByUUIDHandler).Methods("POST")
+
+	r.HandleFunc("/feed", FeedHandler).Methods("GET")
+
+	r.HandleFunc("/user/skills", SkillsHandler).Methods("POST")
+	return r
 }
 
 func yapHandler(w http.ResponseWriter, r *http.Request) {
