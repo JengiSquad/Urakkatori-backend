@@ -3,12 +3,22 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("CNhjgSceTxj0dFOHfsez43cp1ubUFVQr+qfdDB5TXrqWz5br92UliYvmFjNOCMrNYHsGeIFnl7j4I9PBGPA7Og==")
+var secretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
+
+func InitializeAuth() {
+	secretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
+	if secretKey == nil {
+		fmt.Println("Warning: JWT_SECRET_KEY environment variable is not set")
+	} else {
+		fmt.Println("JWT_SECRET_KEY is set")
+	}
+}
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -3,20 +3,24 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os"
 )
 
 func OpenDB() (*sql.DB, error) {
-	const (
-		host      = "aws-0-eu-north-1.pooler.supabase.com"
-		port      = 5432
-		user      = "postgres.uphrachnmeiwrgbzmdat"
-		password  = "urakkatori1"
-		dbname    = "postgres"
-		pool_mode = "session"
-	)
+	host := os.Getenv("SUPABASE_HOST")
+	port := os.Getenv("SUPABASE_PORT")
+	user := os.Getenv("SUPABASE_USER")
+	password := os.Getenv("SUPABASE_PASSWORD")
+	dbname := os.Getenv("SUPABASE_DATABASE")
+	pool_mode := os.Getenv("SUPABASE_POOL_MODE")
+	if host == "" || port == "" || user == "" || password == "" || dbname == "" || pool_mode == "" {
+		return nil, fmt.Errorf("database environment variables are not set")
+	}
+	psqlPort := 5432
+	fmt.Sscanf(port, "%d", &psqlPort)
 	psqlConString := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s pool_mode=%s sslmode=disable",
-		host, port, user, password, dbname, pool_mode)
+		host, psqlPort, user, password, dbname, pool_mode)
 	return sql.Open("postgres", psqlConString)
 }
 
